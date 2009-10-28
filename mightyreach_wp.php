@@ -110,6 +110,12 @@ function mightyreach_dashboard_widget_output() {
 		$no_twitter = true;
 	}
 	
+	if (!empty($options['mightyreach_googleanalytics_token']) && !empty($options['mightyreach_googleanalytics_id'])) {
+		
+	} else {
+		$no_googleanalytics = true;
+	}
+	
 	// Display whatever it is you want to show
 
 	echo "<table width='100%' cellspacing='7'>";
@@ -129,6 +135,39 @@ function mightyreach_dashboard_widget_output() {
 		echo "<tr><td>Twitter followers:</td><td colspan=3><a href='$settings_link'>Click here to setup Twitter</a></td></tr>";
 	} else {
 		echo "<tr><td>Twitter followers:</td><td><strong>$today_twitter</strong></td><td>$yesterday_twitter</td><td>".$twitter_change."</td></tr>";
+	}
+	
+	if ($no_googleanalytics) {
+		echo "<tr><td>Google Analytics:</td><td colspan=3><a href='$settings_link'>Click here to setup Google Analytics</a></td></tr>";
+	} else {
+		
+		$ga_data = $data['googleanalytics'];
+		
+		echo '<style type="text/css" media="screen">.barGraph {border: 3px solid #333;font: 9px Helvetica, Geneva, sans-serif;height:125px;margin: 1em 0;padding: 0;position: relative;width:321px;}.barGraph li {background-color: #666;border: 1px solid #555;border-bottom: none;bottom: 0; color: #FFF;margin: 0; padding: 0 0 0 0;position: absolute;list-style: none;text-align: center; width: 39px; } .barGraph li.visits{ background-color:#666666 } .barGraph li.pageviews{ background-color:#888888 }.visits_legend{background-color:#666666; padding:3px;display:block;clear:both;color:#fff}.pageviews_legend{background-color:#888888; padding:3px;display:block;clear:both;color:#fff}</style>';
+		
+		echo '<tr><td colspan=3>';
+		
+		echo '<ul class="barGraph">';
+
+		foreach($ga_data['days'] as $date => $values){
+			// Reverse sort the array
+			arsort($values);
+
+			foreach($values as $priority => $num){ 
+				// Scale the height to fit in the graph
+				$height = ($num*$ga_data['scale']);
+
+				// Print the Bar
+				echo "<li class='$priority' style='height: ".$height."px; left: ".$ga_data['xOffset']."px;' title='$date'>$num</li>";
+			}
+			// Move on to the next column
+			$ga_data['xOffset'] = $ga_data['xOffset'] + $ga_data['xIncrement'];
+		}
+		echo '</ul>';
+		echo '</td><td>';
+		echo '<span class="pageviews_legend">Pageview</span><br/><span class="visits_legend">Visits</span>';
+		echo '</td>';
+		echo '</tr>';
 	}
 	
 	echo "</table>";
@@ -182,7 +221,51 @@ function mightyreach_refresh_data() {
 			$change = true;
 		}
 	}
+	
+	// Get Google Analytics data
+	if (!empty($options['mightyreach_googleanalytics_token']) && !empty($options['mightyreach_googleanalytics_id'])) {
+		
+		// Get list of accounts
+		$accountxml = mightyreach_make_api_call("https://www.google.com/analytics/feeds/accounts/default", $options['mightyreach_googleanalytics_token']);
 
+		// Get an array with the available accounts
+		$profiles = mightyreach_parse_account_list($accountxml);
+
+		function check_for_accountid($profiles) {
+			$options = mightyreach_get_options();
+			return ($profiles['webPropertyId'] == $options['mightyreach_googleanalytics_id']);
+		}
+
+		$profile = array_pop(array_filter( $profiles, 'check_for_accountid' ));
+
+		// For each profile, get number of pageviews
+		$requrl = sprintf("https://www.google.com/analytics/feeds/data?ids=%s&dimensions=ga:date&metrics=ga:pageviews,ga:visits&sort=ga:date&start-date=2009-10-20&end-date=2009-10-27&start-index=1&max-results=30&prettyprint=false", $profile["tableId"]);
+		$pagecountxml = mightyreach_make_api_call($requrl, $options['mightyreach_googleanalytics_token']);
+
+		$ga_data['days'] = array();
+		$ga_data['xOffset'] = 0;
+		$ga_data['xIncrement'] = 40; // width of bars
+		$ga_data['graphHeight'] = 300; // target height of graph
+		$ga_data['maxResult'] = 1;
+		$ga_data['scale'] = 1;
+		$ga_data['total'] = 0;
+
+		foreach (mightyreach_reportObjectMapper($pagecountxml) as $result) {
+			$ga_data['days'][date("l F j, Y", strtotime($result['date']))] = array( 
+				"pageviews" => $result['pageviews'],
+				"visits" => $result['visits']);
+
+			//Check if this column is the largest
+			$ga_data['total'] += $result['pageviews'];
+			if($ga_data['maxResult'] < $ga_data['total']) $ga_data['maxResult'] = $ga_data['total'];
+		}
+
+		// Set the scale
+		$ga_data['scale'] = $ga_data['graphHeight'] / $ga_data['maxResult'];
+		
+		$data['googleanalytics'] = $ga_data;
+	}
+	
 	if ($change) {
 		$data['last_updated'] = date('m/d/Y g:i A');
 	}
@@ -294,7 +377,176 @@ function mightyreach_parse_feedburner ($xml) {
 	);
 }
 
+/**
+* Google Analytics Functions
+* Special thanks to the following for their direction and sample
+* code for this project:
+* 
+* gapi-google-analytics-php-interface
+* GAPI - Google Analytics API PHP Interface
+* http://code.google.com/p/gapi-google-analytics-php-interface/
+* 
+* Alex Curelea’s Dev Log - Using the Google Analytics API - getting total number of page views
+* http://www.alexc.me/using-the-google-analytics-api-getting-total-number-of-page-views/74/
+* 
+* Vertical Bar Graphs with CSS and PHP
+* http://www.terrill.ca/design/vertical_bar_graphs/
+*/
 
+/**
+* Retrieve full URL for return path after Google Authorization
+*/
+function mightyreach_full_url() {
+	$s = empty($_SERVER["HTTPS"]) ? '' : ($_SERVER["HTTPS"] == "on") ? "s" : "";
+	$protocol = substr(strtolower($_SERVER["SERVER_PROTOCOL"]), 0, strpos(strtolower($_SERVER["SERVER_PROTOCOL"]), "/")) . $s;
+	$port = ($_SERVER["SERVER_PORT"] == "80") ? "" : (":".$_SERVER["SERVER_PORT"]);
+	return $protocol . "://" . $_SERVER['SERVER_NAME'] . $port . $_SERVER['REQUEST_URI'];
+}
+
+/**
+* Retrieve session token for further Google Authorization
+*/
+function mightyreach_get_session_token($onetimetoken) {
+	$output = mightyreach_make_api_call("https://www.google.com/accounts/AuthSubSessionToken", $onetimetoken);
+			
+	if (preg_match("/Token=(.*)/", $output, $matches))
+	{
+		$sessiontoken = $matches[1];
+	} else {
+		echo "Error authenticating with Google.";
+		exit;
+	}		
+	
+	return $sessiontoken;
+}
+
+/**
+* The API curl call to retrieve data
+*/
+function mightyreach_make_api_call($url, $token) {
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	$curlheader[0] = sprintf("Authorization: AuthSub token=\"%s\"/n", $token);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $curlheader);
+	$output = curl_exec($ch);
+	curl_close($ch);
+	return $output;
+}
+
+/**
+* Parse the account list in search for the correct account ID
+*/
+function mightyreach_parse_account_list($xml) {
+	$doc = new DOMDocument();
+	$doc->loadXML($xml);
+	$entries = $doc->getElementsByTagName('entry');
+	$i = 0;
+	$profiles = array();
+	foreach($entries as $entry)
+	{
+		$profiles[$i] = array();
+		
+		$title = $entry->getElementsByTagName('title');
+		$profiles[$i]["title"] = $title->item(0)->nodeValue;
+		
+		$entryid = $entry->getElementsByTagName('id');
+		$profiles[$i]["entryid"] = $entryid->item(0)->nodeValue;
+		
+		$properties = $entry->getElementsByTagName('property');
+		foreach($properties as $property)
+		{
+			if (strcmp($property->getAttribute('name'), 'ga:accountId') == 0)
+				$profiles[$i]["accountId"] = $property->getAttribute('value');
+			
+			if (strcmp($property->getAttribute('name'), 'ga:accountName') == 0)
+				$profiles[$i]["accountName"] = $property->getAttribute('value');
+			
+			if (strcmp($property->getAttribute('name'), 'ga:profileId') == 0)
+				$profiles[$i]["profileId"] = $property->getAttribute('value');
+			
+			if (strcmp($property->getAttribute('name'), 'ga:webPropertyId') == 0)
+				$profiles[$i]["webPropertyId"] = $property->getAttribute('value');
+		}
+		
+		$tableId = $entry->getElementsByTagName('tableId');
+		$profiles[$i]["tableId"] = $tableId->item(0)->nodeValue;
+		
+		$i++;
+	}
+	return $profiles;
+}
+
+/**
+* Returns the parsed analytics data
+*/
+function mightyreach_reportObjectMapper($xml_string) {
+	$xml = simplexml_load_string($xml_string);
+
+	$results = array();
+
+	$report_root_parameters = array();
+	$report_aggregate_metrics = array();
+
+	//Load root parameters
+
+	$report_root_parameters['updated'] = strval($xml->updated);
+	$report_root_parameters['generator'] = strval($xml->generator);
+	$report_root_parameters['generatorVersion'] = strval($xml->generator->attributes());
+
+	$open_search_results = $xml->children('http://a9.com/-/spec/opensearchrss/1.0/');
+
+	foreach($open_search_results as $key => $open_search_result) {
+  		$report_root_parameters[$key] = intval($open_search_result);
+	}
+
+	$google_results = $xml->children('http://schemas.google.com/analytics/2009');
+
+	foreach($google_results->dataSource->property as $property_attributes) {
+  		$report_root_parameters[str_replace('ga:','',$property_attributes->attributes()->name)] = strval($property_attributes->attributes()->value);
+	}
+
+	$report_root_parameters['startDate'] = strval($google_results->startDate);
+	$report_root_parameters['endDate'] = strval($google_results->endDate);
+
+	//Load result aggregate metrics
+
+	foreach($google_results->aggregates->metric as $aggregate_metric) {
+  		$metric_value = strval($aggregate_metric->attributes()->value);
+
+  		//Check for float, or value with scientific notation
+	  	if(preg_match('/^(\d+\.\d+)|(\d+E\d+)|(\d+.\d+E\d+)$/',$metric_value)) {
+	    	$report_aggregate_metrics[str_replace('ga:','',$aggregate_metric->attributes()->name)] = floatval($metric_value);
+	  	} else {
+	    	$report_aggregate_metrics[str_replace('ga:','',$aggregate_metric->attributes()->name)] = intval($metric_value);
+	  	}
+	}
+
+	//Load result entries
+
+	foreach($xml->entry as $entry) {
+  		$metrics = array();
+  		foreach($entry->children('http://schemas.google.com/analytics/2009')->metric as $metric) {
+    		$metric_value = strval($metric->attributes()->value);
+
+		    //Check for float, or value with scientific notation
+		    if(preg_match('/^(\d+\.\d+)|(\d+E\d+)|(\d+.\d+E\d+)$/',$metric_value)) {
+      			$metrics[str_replace('ga:','',$metric->attributes()->name)] = floatval($metric_value);
+    		} else {
+      			$metrics[str_replace('ga:','',$metric->attributes()->name)] = intval($metric_value);
+    		}
+  		}
+
+  		$dimensions = array();
+  		foreach($entry->children('http://schemas.google.com/analytics/2009')->dimension as $dimension) {
+    		$dimensions[str_replace('ga:','',$dimension->attributes()->name)] = strval($dimension->attributes()->value);
+  		}
+
+  		$results[] = array_merge($metrics,$dimensions);
+	}
+
+	return $results;
+}
 
 /**
 * Adds the Settings link to the plugin activate/deactivate page
@@ -325,6 +577,9 @@ function mightyreach_admin_options_page() {
 			if (stristr($key, 'mightyreach_feedburner_uri') && !empty($value)) {
 				$options['mightyreach_feedburner_uri'] = $value;
 			}
+			if (stristr($key, 'mightyreach_googleanalytics_id') && !empty($value)) {
+				$options['mightyreach_googleanalytics_id'] = $value;
+			}
 			if (stristr($key, 'mightyreach_clear_data') && !empty($value) && $value == 'on') {
 				update_option('mightyreach_data', null);
 			}
@@ -335,7 +590,19 @@ function mightyreach_admin_options_page() {
 		mightyreach_refresh_data();
 
 		echo '<div class="updated"><p>Success! Your changes were successfully saved!</p></div>';
-	} ?>
+	} 
+	
+	// Saves the Google Session AuthSub token
+	if (!empty($_REQUEST['token']) && !isset($options['mightyreach_googleanalytics_token'])) {
+		
+		$options['mightyreach_googleanalytics_token'] = mightyreach_get_session_token($_REQUEST['token']);
+		
+		update_option('mightyreach_options', $options);
+		
+		echo '<div class="updated"><p>Success! You have successfully authenticated your Google Analytics Account!</p></div>';
+	}
+	
+	?>
                                
 	<div class="wrap">
 		<h2>MightyReach Options</h2>
@@ -358,6 +625,14 @@ function mightyreach_admin_options_page() {
 				<tr valign="bottom" style="border-bottom: 1px solid #ccc;">
 					<th style="width: 5%; text-align: right"><label for="mightyreach_feedburner_uri">Feedburner URI:</label></th>
 					<td style="width: 30%;"><input type="text" size="15" id="mightyreach_feedburner_uri" name="mightyreach_feedburner_uri" value="<? echo (!empty($options['mightyreach_feedburner_uri'])) ? $options['mightyreach_feedburner_uri'] : "";?>"></td>
+				</tr>
+				
+				<tr valign="bottom" style="border-bottom: 1px solid #ccc;">
+					<th style="width: 5%; text-align: right"><label for="mightyreach_feedburner_uri">Google Analytics ID <br/><small>(ie. UA-1234567-1)</small>:</label></th>
+					<td style="width: 30%;">
+						<input type="text" size="15" id="mightyreach_googleanalytics_id" name="mightyreach_googleanalytics_id" value="<? echo (!empty($options['mightyreach_googleanalytics_id'])) ? $options['mightyreach_googleanalytics_id'] : "";?>">
+						<a href="https://www.google.com/accounts/AuthSubRequest?next=<?php echo mightyreach_full_url(); ?>&scope=https://www.google.com/analytics/feeds/&secure=0&session=1">Click here to authenticate your Google Analytics Account.</a>
+					</td>
 				</tr>
 				
 				<tr valign="bottom" style="border-bottom: 1px solid #ccc;">
