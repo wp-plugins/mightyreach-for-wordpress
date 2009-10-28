@@ -630,7 +630,9 @@ function mightyreach_admin_options_page() {
 					<th style="width: 5%; text-align: right"><label for="mightyreach_feedburner_uri">Google Analytics ID <br/><small>(ie. UA-1234567-1)</small>:</label></th>
 					<td style="width: 30%;">
 						<input type="text" size="15" id="mightyreach_googleanalytics_id" name="mightyreach_googleanalytics_id" value="<? echo (!empty($options['mightyreach_googleanalytics_id'])) ? $options['mightyreach_googleanalytics_id'] : "";?>">
-						<a href="https://www.google.com/accounts/AuthSubRequest?next=<?php echo mightyreach_full_url(); ?>&scope=https://www.google.com/analytics/feeds/&secure=0&session=1">Click here to authenticate your Google Analytics Account.</a>
+						<?php if (empty($options['mightyreach_googleanalytics_token'])): ?>
+							<a href="https://www.google.com/accounts/AuthSubRequest?next=<?php echo mightyreach_full_url(); ?>&scope=https://www.google.com/analytics/feeds/&secure=0&session=1">Click here to authenticate your Google Analytics Account.</a>
+						<?php endif ?>
 					</td>
 				</tr>
 				
