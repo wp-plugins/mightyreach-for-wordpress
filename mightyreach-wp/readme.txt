@@ -4,7 +4,7 @@ Donate link: http://mightybrand.com/blog/
 Tags: mightybrand, mightyreach, social media, twitter, stats, feedburner, rss
 Requires at least: 2.8
 Tested up to: 2.8.5
-Stable tag: trunk
+Stable tag: 0.1
 
 MightyReach for WordPress displays your Feedburner and Twitter stats on your dashboard
 
