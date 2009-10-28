@@ -143,31 +143,31 @@ function mightyreach_dashboard_widget_output() {
 		
 		$ga_data = $data['googleanalytics'];
 		
-		echo '<style type="text/css" media="screen">.barGraph {border: 3px solid #333;font: 9px Helvetica, Geneva, sans-serif;height:125px;margin: 1em 0;padding: 0;position: relative;width:321px;}.barGraph li {background-color: #666;border: 1px solid #555;border-bottom: none;bottom: 0; color: #FFF;margin: 0; padding: 0 0 0 0;position: absolute;list-style: none;text-align: center; width: 39px; } .barGraph li.visits{ background-color:#666666 } .barGraph li.pageviews{ background-color:#888888 }.visits_legend{background-color:#666666; padding:3px;display:block;clear:both;color:#fff}.pageviews_legend{background-color:#888888; padding:3px;display:block;clear:both;color:#fff}</style>';
-		
-		echo '<tr><td colspan=3>';
-		
-		echo '<ul class="barGraph">';
-
+		echo '<tr><td colspan=4><hr/></td></tr>';
+		echo '<tr style="text-align:left;">
+			<th>Date</th>
+			<th>Pageviews</th>
+			<th>Visits</th>
+			<th>New Visits</th>
+		</tr>';
+	
+		$total_visits = $total_pageviews = 0;
 		foreach($ga_data['days'] as $date => $values){
-			// Reverse sort the array
-			arsort($values);
-
-			foreach($values as $priority => $num){ 
-				// Scale the height to fit in the graph
-				$height = ($num*$ga_data['scale']);
-
-				// Print the Bar
-				echo "<li class='$priority' style='height: ".$height."px; left: ".$ga_data['xOffset']."px;' title='$date'>$num</li>";
-			}
-			// Move on to the next column
-			$ga_data['xOffset'] = $ga_data['xOffset'] + $ga_data['xIncrement'];
+			echo '<tr>';
+			echo '<td>'.$date.'</td>';
+			echo '<td>'.$values['pageviews'].'</td>';
+			echo '<td>'.$values['visits'].'</td>';
+			echo '<td>'.$values['new_visits'].'</td>';
+			echo '</tr>';
 		}
-		echo '</ul>';
-		echo '</td><td>';
-		echo '<span class="pageviews_legend">Pageview</span><br/><span class="visits_legend">Visits</span>';
-		echo '</td>';
+		
+		echo '<tr style="font-weight:bold;">';
+		echo '<td>Totals:</td>';
+		echo '<td>'.$ga_data['total_pageviews'].'</td>';
+		echo '<td>'.$ga_data['total_visits'].'</td>';
+		echo '<td>'.$ga_data['total_new_visits'].'</td>';
 		echo '</tr>';
+		
 	}
 	
 	echo "</table>";
@@ -237,31 +237,30 @@ function mightyreach_refresh_data() {
 		}
 
 		$profile = array_pop(array_filter( $profiles, 'check_for_accountid' ));
-
+		
+		$ga_data['account_name'] = $profile['accountName'];
+		$ga_data['site_title'] = $profile['title'];
+		
 		// For each profile, get number of pageviews
-		$requrl = sprintf("https://www.google.com/analytics/feeds/data?ids=%s&dimensions=ga:date&metrics=ga:pageviews,ga:visits&sort=ga:date&start-date=2009-10-20&end-date=2009-10-27&start-index=1&max-results=30&prettyprint=false", $profile["tableId"]);
+		$requrl = "https://www.google.com/analytics/feeds/data?ids=";
+		$requrl .= $profile['tableId']."&dimensions=ga:date&metrics=ga:pageviews,ga:visits,ga:newVisits&sort=ga:date";
+		$requrl .= "&start-date=".date("Y-m-d", strtotime("-1 week"))."&end-date=".date("Y-m-d")."&start-index=1&max-results=30&prettyprint=false";
+		
 		$pagecountxml = mightyreach_make_api_call($requrl, $options['mightyreach_googleanalytics_token']);
 
-		$ga_data['days'] = array();
-		$ga_data['xOffset'] = 0;
-		$ga_data['xIncrement'] = 40; // width of bars
-		$ga_data['graphHeight'] = 300; // target height of graph
-		$ga_data['maxResult'] = 1;
-		$ga_data['scale'] = 1;
-		$ga_data['total'] = 0;
-
+		$ga_data['total_pageviews'] = 0;
+		$ga_data['total_visits'] = 0;
+		
 		foreach (mightyreach_reportObjectMapper($pagecountxml) as $result) {
-			$ga_data['days'][date("l F j, Y", strtotime($result['date']))] = array( 
+			$ga_data['days'][date("D M j, y", strtotime($result['date']))] = array( 
 				"pageviews" => $result['pageviews'],
-				"visits" => $result['visits']);
-
-			//Check if this column is the largest
-			$ga_data['total'] += $result['pageviews'];
-			if($ga_data['maxResult'] < $ga_data['total']) $ga_data['maxResult'] = $ga_data['total'];
+				"visits" => $result['visits'],
+				"new_visits" => $result['newVisits']);
+				
+			$ga_data['total_pageviews'] += $result['pageviews'];
+			$ga_data['total_visits'] += $result['visits'];
+			$ga_data['total_new_visits'] += $result['newVisits'];
 		}
-
-		// Set the scale
-		$ga_data['scale'] = $ga_data['graphHeight'] / $ga_data['maxResult'];
 		
 		$data['googleanalytics'] = $ga_data;
 	}
