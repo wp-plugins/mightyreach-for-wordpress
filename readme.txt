@@ -1,10 +1,16 @@
 === MightyReach for WordPress ===
-Contributors: ryanwaggoner
+Contributors: ryanwaggoner, benrasmusen
 Donate link: http://mightybrand.com/blog/
 Tags: mightybrand, mightyreach, social media, twitter, stats, feedburner, rss, google analytics
 Requires at least: 2.8
 Tested up to: 2.8.5
 Stable tag: trunk
+
+== Description ==
+
+MightyReach for WordPress displays your Feedburner, Twitter and Google Analytics stats on your dashboard
+
+== Short Description == 
 
 MightyReach for WordPress displays your Feedburner, Twitter and Google Analytics stats on your dashboard
 
@@ -93,6 +99,10 @@ No.
 We'd love to hear from you, so please contact us at the link below. Be sure to specify that it's regarding the MightyReach for WordPress plugin. Thanks!
 
 http://mightybrand.com/blog/contact/
+
+== Screenshots ==
+
+1. Standard dashboard view.
 
 == Changelog ==
 
