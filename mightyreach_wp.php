@@ -229,15 +229,22 @@ function mightyreach_refresh_data() {
 		}
 	}
 	
+	
 	// Get Google Analytics data
-	if (!empty($options['mightyreach_googleanalytics_token']) && !empty($options['mightyreach_googleanalytics_id'])) {
-		
+	
+	$ga_data = array();
+	if (!empty($options['mightyreach_googleanalytics_token'])) {
 		// Get list of accounts
 		$accountxml = mightyreach_make_api_call("https://www.google.com/analytics/feeds/accounts/default", $options['mightyreach_googleanalytics_token']);
 
 		// Get an array with the available accounts
 		$profiles = mightyreach_parse_account_list($accountxml);
-
+		
+		$ga_data['profiles'] = $profiles;
+	}
+	
+	if (!empty($options['mightyreach_googleanalytics_id'])) {
+		
 		function check_for_accountid($profiles) {
 			$options = mightyreach_get_options();
 			return ($profiles['webPropertyId'] == $options['mightyreach_googleanalytics_id']);
@@ -269,8 +276,9 @@ function mightyreach_refresh_data() {
 			$ga_data['total_new_visits'] += $result['newVisits'];
 		}
 		
-		$data['googleanalytics'] = $ga_data;
 	}
+	
+	$data['googleanalytics'] = $ga_data;
 	
 	if ($change) {
 		$data['last_updated'] = date('m/d/Y g:i A');
@@ -394,9 +402,6 @@ function mightyreach_parse_feedburner ($xml) {
 * 
 * Alex Curelea’s Dev Log - Using the Google Analytics API - getting total number of page views
 * http://www.alexc.me/using-the-google-analytics-api-getting-total-number-of-page-views/74/
-* 
-* Vertical Bar Graphs with CSS and PHP
-* http://www.terrill.ca/design/vertical_bar_graphs/
 */
 
 /**
@@ -571,6 +576,30 @@ function mightyreach_admin_options_page() {
 	
 	$options = mightyreach_get_options();
 	
+	// Saves the Google Session AuthSub token
+	if (!empty($_REQUEST['token']) && !isset($options['mightyreach_googleanalytics_token'])) {
+		
+		$options['mightyreach_googleanalytics_token'] = mightyreach_get_session_token($_REQUEST['token']);
+		
+		update_option('mightyreach_options', $options);
+		
+		mightyreach_refresh_data();
+		
+		echo '<div class="updated"><p>Success! You have successfully authenticated your Google Analytics Account!</p></div>';
+	}
+	
+	$data = mightyreach_get_data();
+	
+	// check if they have revoked access to GA
+	if (!empty($options['mightyreach_googleanalytics_token']) && !empty($options['mightyreach_googleanalytics_id'])) {
+		$return = mightyreach_make_api_call("https://www.google.com/analytics/feeds/accounts/default", $options['mightyreach_googleanalytics_token']);
+		if (strpos($return, 'Error 401')) {
+			unset($options['mightyreach_googleanalytics_token']);
+			unset($options['mightyreach_googleanalytics_id']);
+			unset($data['googleanalytics']['profiles']);
+		}
+	}
+	
 	if ($_POST['mightyreach_save']) {
 		if (! wp_verify_nonce($_POST['_wpnonce'], 'mightyreach-update-options') ) die('Whoops! There was a problem with the data you posted. Please go back and try again.'); 
 		$options['mightyreach_path'] = $_POST['mightyreach_path'];                   
@@ -598,16 +627,6 @@ function mightyreach_admin_options_page() {
 		echo '<div class="updated"><p>Success! Your changes were successfully saved!</p></div>';
 	} 
 	
-	// Saves the Google Session AuthSub token
-	if (!empty($_REQUEST['token']) && !isset($options['mightyreach_googleanalytics_token'])) {
-		
-		$options['mightyreach_googleanalytics_token'] = mightyreach_get_session_token($_REQUEST['token']);
-		
-		update_option('mightyreach_options', $options);
-		
-		echo '<div class="updated"><p>Success! You have successfully authenticated your Google Analytics Account!</p></div>';
-	}
-	
 	?>
                                
 	<div class="wrap">
@@ -634,13 +653,24 @@ function mightyreach_admin_options_page() {
 				</tr>
 				
 				<tr valign="bottom" style="border-bottom: 1px solid #ccc;">
-					<th style="width: 5%; text-align: right"><label for="mightyreach_feedburner_uri">Google Analytics ID <br/><small>(ie. UA-1234567-1)</small>:</label></th>
-					<td style="width: 30%;">
-						<input type="text" size="15" id="mightyreach_googleanalytics_id" name="mightyreach_googleanalytics_id" value="<? echo (!empty($options['mightyreach_googleanalytics_id'])) ? $options['mightyreach_googleanalytics_id'] : "";?>">
-						<?php if (empty($options['mightyreach_googleanalytics_token'])): ?>
+					<?php if (empty($options['mightyreach_googleanalytics_token'])): ?>
+						<th style="width: 5%; text-align: right"><label for="mightyreach_googleanalytics_id">Google Analytics</label></th>
+						<td style="width: 30%;">
 							<a href="https://www.google.com/accounts/AuthSubRequest?next=<?php echo mightyreach_full_url(); ?>&scope=https://www.google.com/analytics/feeds/&secure=0&session=1">Click here to authenticate your Google Analytics Account.</a>
-						<?php endif ?>
-					</td>
+						</td>
+					<?php else: ?>
+						<th style="width: 5%; text-align: right"><label for="mightyreach_googleanalytics_id">Google Analtics Account</label></th>
+						<td style="width: 30%;">
+							<select name="mightyreach_googleanalytics_id">
+							<?php foreach ($data['googleanalytics']['profiles'] as $profile): ?>
+								<?php $selected = ($profile['webPropertyId'] == $options['mightyreach_googleanalytics_id']) ? 'selected="selected"' : ''; ?>
+								<option value="<?php echo $profile['webPropertyId'] ?>"<?php echo $selected ?>>
+									<?php echo $profile['title'] ?>
+								</option>
+							<?php endforeach ?>
+							</select>
+						</td>
+					<?php endif ?>
 				</tr>
 				
 				<tr valign="bottom" style="border-bottom: 1px solid #ccc;">

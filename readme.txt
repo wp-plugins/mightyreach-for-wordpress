@@ -57,7 +57,7 @@ Data should start flowing shortly.
 
 1. Make sure you have granted the plugin access to your Google Analytics account by clicking the link in the admin options
 	* If no link is showing up you have probably granted Google Analytics access, if not check the 'Clear data' checkbox to start over
-1. Verify that you've entered the correct Google Analytics Account ID.
+1. Verify that you've selected the correct Google Analytics Account in the list.
 
 = What other services will you support? =
 
@@ -88,7 +88,7 @@ http://mightybrand.com/blog/contact/
 
 = Do I have to enter my passwords for any services? =
 
-No. Though for Google Analytics you'll have to grant access to the plugin, but you never have to give up your login and you can always revoke access.
+No. Though for Google Analytics you'll have to grant access to the plugin, but you never have to give up your login and you can always revoke access. To revoke access to the plugin go to: https://www.google.com/accounts/IssuedAuthSubTokens.
 
 = Is any of my data stored or transmitted anywhere other than my WordPress database? =
 
@@ -108,6 +108,7 @@ http://mightybrand.com/blog/contact/
 
 = 0.2 =
 * Added Google Analytics support
+* Fixed date issue with Feedburner
 
 = 0.1 =
 * Initial alpha version
