@@ -82,7 +82,7 @@ function mightyreach_deactivation() {
 *  Output the contents of the dashboard widget
 */
 function mightyreach_dashboard_widget_output() {
-	
+		
 	$settings_link = 'options-general.php?page=' . basename(__FILE__);
 	
 	$options = mightyreach_get_options();
@@ -183,18 +183,25 @@ function mightyreach_dashboard_widget_output() {
 * Refresh data from 3rd party services
 */
 function mightyreach_refresh_data() {
-
+	
 	$options = mightyreach_get_options();
 	$data = mightyreach_get_data();
 	$change = false;
 
 	if (!empty($options['mightyreach_feedburner_uri'])) {
 		// get feedburner data
+		
+		/*
+		*  NOTE: Feedburner's midnight is CDT (-5 GMT) so we get the GMT times here and adjust back
+		*  by five hours so these switch to the next day anywhere in the world.
+		*/ 
+		$yesterday_date = gmdate('Y-m-d', time()-(60*60*24)-(60*60*5));
+		$day_before_yesterday_date = gmdate('Y-m-d', time()-(60*60*24*2)-(60*60*5));
 	 	$host = 'feedburner.google.com';
-		$path = '/api/awareness/1.0/GetFeedData?uri=' . $options['mightyreach_feedburner_uri'] . '&dates=2009-10-24,2009-10-25';		
+		$path = '/api/awareness/1.0/GetFeedData?uri=' . $options['mightyreach_feedburner_uri'] . '&dates=' . $day_before_yesterday_date . ',' . $yesterday_date;		
 		$feedburner = mightyreach_get_http_data($host, $path);
 		if (!empty($feedburner)) {
-			$feedburner = mightyreach_parse_feedburner($feedburner);
+			$feedburner = mightyreach_parse_feedburner($feedburner);			
 			$data['feedburner']['subs_yesterday'] = $feedburner['yesterday']['subs'];
 			$data['feedburner']['subs_today'] = $feedburner['today']['subs'];
 			$data['feedburner']['refresh'] = date('Ymd');
