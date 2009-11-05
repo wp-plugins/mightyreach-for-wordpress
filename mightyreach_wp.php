@@ -110,7 +110,7 @@ function mightyreach_dashboard_widget_output() {
 		$no_twitter = true;
 	}
 	
-	if (!empty($options['mightyreach_googleanalytics_token']) && !empty($options['mightyreach_googleanalytics_id'])) {
+	if (!empty($options['mightyreach_googleanalytics_session_token']) && !empty($options['mightyreach_googleanalytics_id'])) {
 		
 	} else {
 		$no_googleanalytics = true;
@@ -233,9 +233,9 @@ function mightyreach_refresh_data() {
 	// Get Google Analytics data
 	
 	$ga_data = array();
-	if (!empty($options['mightyreach_googleanalytics_token'])) {
+	if (!empty($options['mightyreach_googleanalytics_session_token'])) {
 		// Get list of accounts
-		$accountxml = mightyreach_make_api_call("https://www.google.com/analytics/feeds/accounts/default", $options['mightyreach_googleanalytics_token']);
+		$accountxml = mightyreach_make_api_call("https://www.google.com/analytics/feeds/accounts/default", $options['mightyreach_googleanalytics_session_token']);
 
 		// Get an array with the available accounts
 		$profiles = mightyreach_parse_account_list($accountxml);
@@ -260,7 +260,7 @@ function mightyreach_refresh_data() {
 		$requrl .= $profile['tableId']."&dimensions=ga:date&metrics=ga:pageviews,ga:visits,ga:newVisits&sort=ga:date";
 		$requrl .= "&start-date=".date("Y-m-d", strtotime("-1 week"))."&end-date=".date("Y-m-d")."&start-index=1&max-results=30&prettyprint=false";
 		
-		$pagecountxml = mightyreach_make_api_call($requrl, $options['mightyreach_googleanalytics_token']);
+		$pagecountxml = mightyreach_make_api_call($requrl, $options['mightyreach_googleanalytics_session_token']);
 
 		$ga_data['total_pageviews'] = 0;
 		$ga_data['total_visits'] = 0;
@@ -423,10 +423,7 @@ function mightyreach_get_session_token($onetimetoken) {
 	if (preg_match("/Token=(.*)/", $output, $matches))
 	{
 		$sessiontoken = $matches[1];
-	} else {
-		echo "Error authenticating with Google.";
-		exit;
-	}		
+	}
 	
 	return $sessiontoken;
 }
@@ -577,9 +574,10 @@ function mightyreach_admin_options_page() {
 	$options = mightyreach_get_options();
 	
 	// Saves the Google Session AuthSub token
-	if (!empty($_REQUEST['token']) && !isset($options['mightyreach_googleanalytics_token'])) {
+	if (!empty($_REQUEST['token']) && !isset($options['mightyreach_googleanalytics_session_token'])) {
 		
-		$options['mightyreach_googleanalytics_token'] = mightyreach_get_session_token($_REQUEST['token']);
+		$options['mightyreach_googleanalytics_session_token'] = mightyreach_get_session_token($_REQUEST['token']);
+		$options['mightyreach_googleanalytics_authsub_token'] = $_REQUEST['token'];
 		
 		update_option('mightyreach_options', $options);
 		
@@ -591,12 +589,15 @@ function mightyreach_admin_options_page() {
 	$data = mightyreach_get_data();
 	
 	// check if they have revoked access to GA
-	if (!empty($options['mightyreach_googleanalytics_token']) && !empty($options['mightyreach_googleanalytics_id'])) {
-		$return = mightyreach_make_api_call("https://www.google.com/analytics/feeds/accounts/default", $options['mightyreach_googleanalytics_token']);
+	if (!empty($options['mightyreach_googleanalytics_session_token']) && !empty($options['mightyreach_googleanalytics_id'])) {
+		$return = mightyreach_make_api_call("https://www.google.com/analytics/feeds/accounts/default", $options['mightyreach_googleanalytics_session_token']);
 		if (strpos($return, 'Error 401')) {
-			unset($options['mightyreach_googleanalytics_token']);
+			unset($options['mightyreach_googleanalytics_session_token']);
+			unset($options['mightyreach_googleanalytics_authsub_token']);
 			unset($options['mightyreach_googleanalytics_id']);
 			unset($data['googleanalytics']['profiles']);
+			update_option('mightyreach_options', $options);
+			update_option('mightyreach_data', serialize($data));
 		}
 	}
 	
@@ -617,6 +618,7 @@ function mightyreach_admin_options_page() {
 			}
 			if (stristr($key, 'mightyreach_clear_data') && !empty($value) && $value == 'on') {
 				update_option('mightyreach_data', null);
+				$options = array();
 			}
 		}			
 
@@ -653,7 +655,7 @@ function mightyreach_admin_options_page() {
 				</tr>
 				
 				<tr valign="bottom" style="border-bottom: 1px solid #ccc;">
-					<?php if (empty($options['mightyreach_googleanalytics_token'])): ?>
+					<?php if (empty($options['mightyreach_googleanalytics_session_token'])): ?>
 						<th style="width: 5%; text-align: right"><label for="mightyreach_googleanalytics_id">Google Analytics</label></th>
 						<td style="width: 30%;">
 							<a href="https://www.google.com/accounts/AuthSubRequest?next=<?php echo mightyreach_full_url(); ?>&scope=https://www.google.com/analytics/feeds/&secure=0&session=1">Click here to authenticate your Google Analytics Account.</a>
@@ -669,6 +671,8 @@ function mightyreach_admin_options_page() {
 								</option>
 							<?php endforeach ?>
 							</select>
+							&nbsp;
+							<a href="https://www.google.com/accounts/RevokeAuthSubAccess?authsub_tokens=<?php echo $options['mightyreach_googleanalytics_session_token'] ?>&amp;authsub_target_label=<?php echo $_SERVER['HTTP_HOST']; ?>&amp;authsub_scope_label=Google+Analytics">Revoke Google Analytics Access</a>
 						</td>
 					<?php endif ?>
 				</tr>
