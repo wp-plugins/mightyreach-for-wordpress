@@ -1,18 +1,27 @@
 === MightyReach for WordPress ===
-Contributors: ryanwaggoner
+Contributors: ryanwaggoner, benrasmusen
 Donate link: http://mightybrand.com/blog/
-Tags: mightybrand, mightyreach, social media, twitter, stats, feedburner, rss
+Tags: mightybrand, mightyreach, social media, twitter, stats, feedburner, rss, google analytics
 Requires at least: 2.8
 Tested up to: 2.8.5
-Stable tag: 0.1
+Stable tag: 0.2
 
-MightyReach for WordPress displays your Feedburner and Twitter stats on your dashboard
+== Description ==
+
+MightyReach for WordPress displays your Feedburner, Twitter and Google Analytics stats on your dashboard
+
+== Short Description == 
+
+MightyReach for WordPress displays your Feedburner, Twitter and Google Analytics stats on your dashboard
 
 == Installation ==
 
 1. Upload the `mightyreach-wp` directory to the `/wp-content/plugins/` directory
 1. Activate the plugin through the 'Plugins' menu in WordPress
-1. Go to the MightyReach settings menu and enter your Twitter username and Feedburner URI
+1. Go to the MightyReach settings menu and enter the following information:
+	* Twitter username
+	* Feedburner URI
+	* Google Analytics Account ID and Grant Google Access via the link provided
 1. Ensure that you do not have your Twitter profile protected and that you have enabled the Feedburner Awareness API (details in FAQ)
 1. Done! The MightyReach widget will appear on your dashboard
 
@@ -44,11 +53,16 @@ IMPORTANT: You also have to enable the Feedburner Awareness API. To do so, follo
 
 Data should start flowing shortly.
 
+= Why am I not getting any data from Google Analytics? =
+
+1. Make sure you have granted the plugin access to your Google Analytics account by clicking the link in the admin options
+	* If no link is showing up you have probably granted Google Analytics access, if not check the 'Clear data' checkbox to start over
+1. Verify that you've selected the correct Google Analytics Account in the list.
+
 = What other services will you support? =
 
 We're not sure, but here's a few of the ideas we have:
 
-* Google Analytics
 * Youtube
 * Bit.ly
 * Flickr
@@ -74,7 +88,7 @@ http://mightybrand.com/blog/contact/
 
 = Do I have to enter my passwords for any services? =
 
-No.
+No. Though for Google Analytics you'll have to grant access to the plugin, but you never have to give up your login and you can always revoke access. To revoke access to the plugin go to: https://www.google.com/accounts/IssuedAuthSubTokens.
 
 = Is any of my data stored or transmitted anywhere other than my WordPress database? =
 
@@ -86,7 +100,15 @@ We'd love to hear from you, so please contact us at the link below. Be sure to s
 
 http://mightybrand.com/blog/contact/
 
+== Screenshots ==
+
+1. Standard dashboard view.
+
 == Changelog ==
+
+= 0.2 =
+* Added Google Analytics support
+* Fixed date issue with Feedburner
 
 = 0.1 =
 * Initial alpha version
