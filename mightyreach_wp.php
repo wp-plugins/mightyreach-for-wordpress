@@ -2,7 +2,7 @@
 /*
 Plugin Name: MightyReach for WordPress
 Plugin URI: http://mightybrand.com/blog/our-wordpress-plugins/
-Description: MightyReach for WordPress displays your Feedburner and Twitter stats on your dashboard
+Description: MightyReach for WordPress displays your Google Analytics, Feedburner and Twitter stats on your dashboard
 Author: MightyBrand
 Version: 0.2
 Author URI: http://mightybrand.com/
